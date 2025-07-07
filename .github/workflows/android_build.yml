@@ -1,61 +1,35 @@
-# .github/workflows/android_build.yml
-name: Android APK Build
+name: Build Android APK
 
 on:
   push:
-    branches:
-      - main # Trigger on pushes to the main branch
-  pull_request: # Also trigger on pull requests to main
-    branches:
-      - main
-  workflow_dispatch: # Allows manual triggering from GitHub Actions tab
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build_android_apk:
-    runs-on: ubuntu-latest # Use a fresh Ubuntu environment for each build
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60 # Set a timeout for the entire job
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4 # Action to check out your code
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python environment
-        uses: actions/setup-python@v5
+      - name: Build APK using Buildozer
+        # This action handles Python setup, Buildozer installation,
+        # Android SDK/NDK download, license acceptance, and the build process
+        # based on your buildozer.spec file.
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
         with:
-          python-version: '3.9' # Specify a Python version compatible with Kivy/Buildozer
+          command: buildozer android debug
+          buildozer_version: stable
+          # No need for manual Python setup, environment variables, or sdkmanager calls here,
+          # as the action manages them internally.
 
-      - name: Install Buildozer, Cython, and dependencies
-        run: |
-          pip install buildozer==1.4.0 cython # Added cython here
-          # Install Buildozer dependencies for Ubuntu
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libncurses5-dev libncursesw5-dev libssl-dev libffi-dev libsqlite3-dev libxml2-dev libxslt1-dev libjpeg-dev libpng-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
-
-      - name: Verify essential project files exist
-        # Ensure your app.py and haarcascade_frontalface_default.xml are in the repository root.
-        run: |
-          if [ ! -f app.py ]; then
-            echo "Error: app.py not found in repository root. Please ensure it's committed."
-            exit 1
-          fi
-          if [ ! -f haarcascade_frontalface_default.xml ]; then
-            echo "Error: haarcascade_frontalface_default.xml not found in repository root. Please ensure it's committed."
-            exit 1
-          fi
-          if [ ! -f buildozer.spec ]; then
-            echo "Error: buildozer.spec not found in repository root. Please ensure it's committed."
-            exit 1
-          fi
-          # Add this step to print buildozer.spec content for debugging
-          echo "--- Content of buildozer.spec ---"
-          cat buildozer.spec
-          echo "---------------------------------"
-
-      - name: Build Android APK
-        # The 'android debug' command will download SDK/NDK and build the APK
-        run: buildozer android debug
-
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FaceApp-APK
-          path: bin/*.apk # Upload all APK files generated in the bin directory
+          name: myapp-debug-apk
+          path: ${{ steps.buildozer.outputs.filename }} # Path to the generated APK from the action
+          retention-days: 7 # How long the artifact will be stored on GitHub
+ 
