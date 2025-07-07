@@ -1,0 +1,55 @@
+# .github/workflows/android_build.yml
+name: Android APK Build
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the main branch
+  workflow_dispatch: # Allows manual triggering from GitHub Actions tab
+
+jobs:
+  build_android_apk:
+    runs-on: ubuntu-latest # Use a fresh Ubuntu environment for each build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 # Action to check out your code
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # Specify a Python version compatible with Kivy/Buildozer
+
+      - name: Install Buildozer
+        run: |
+          pip install buildozer==1.4.0 # Pin to a stable Buildozer version
+          # Install Buildozer dependencies for Ubuntu
+          sudo apt update
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libncurses5-dev libncursesw5-dev libssl-dev libffi-dev libsqlite3-dev libxml2-dev libxslt1-dev libjpeg-dev libpng-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
+
+      - name: Prepare project files
+        # Ensure your app.py, haarcascade_frontalface_default.xml, and known_faces/ (if pre-existing)
+        # are in the root of your repository or correctly referenced by source.dir in buildozer.spec
+        run: |
+          # If you have a buildozer.spec file already, ensure it's in the root
+          # If not, you might need to generate it first (though it's better to commit it)
+          # buildozer init # Only if buildozer.spec is not committed
+          # Ensure haarcascade_frontalface_default.xml is present
+          if [ ! -f haarcascade_frontalface_default.xml ]; then
+            echo "Error: haarcascade_frontalface_default.xml not found in repository root."
+            exit 1
+          fi
+          # Ensure known_faces directory is present if you want to bundle initial data
+          # (though for writable storage, the app creates it at runtime)
+          # If you want to pre-populate, ensure it's committed to the repo.
+          # For this setup, we assume the app creates it, so no specific action here.
+
+      - name: Build Android APK
+        # The 'android debug' command will download SDK/NDK and build the APK
+        run: buildozer android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FaceApp-APK
+          path: bin/*.apk # Upload all APK files generated in the bin directory
