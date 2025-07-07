@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main # Trigger on pushes to the main branch
+  pull_request: # Also trigger on pull requests to main
+    branches:
+      - main
   workflow_dispatch: # Allows manual triggering from GitHub Actions tab
 
 jobs:
@@ -15,34 +18,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4 # Action to check out your code
 
-      - name: Set up Python
+      - name: Set up Python environment
         uses: actions/setup-python@v5
         with:
           python-version: '3.9' # Specify a Python version compatible with Kivy/Buildozer
 
-      - name: Install Buildozer
+      - name: Install Buildozer, Cython, and dependencies
         run: |
-          pip install buildozer==1.4.0 # Pin to a stable Buildozer version
+          pip install buildozer==1.4.0 cython # Added cython here
           # Install Buildozer dependencies for Ubuntu
           sudo apt update
           sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libncurses5-dev libncursesw5-dev libssl-dev libffi-dev libsqlite3-dev libxml2-dev libxslt1-dev libjpeg-dev libpng-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
 
-      - name: Prepare project files
-        # Ensure your app.py, haarcascade_frontalface_default.xml, and known_faces/ (if pre-existing)
-        # are in the root of your repository or correctly referenced by source.dir in buildozer.spec
+      - name: Verify essential project files exist
+        # Ensure your app.py and haarcascade_frontalface_default.xml are in the repository root.
         run: |
-          # If you have a buildozer.spec file already, ensure it's in the root
-          # If not, you might need to generate it first (though it's better to commit it)
-          # buildozer init # Only if buildozer.spec is not committed
-          # Ensure haarcascade_frontalface_default.xml is present
-          if [ ! -f haarcascade_frontalface_default.xml ]; then
-            echo "Error: haarcascade_frontalface_default.xml not found in repository root."
+          if [ ! -f app.py ]; then
+            echo "Error: app.py not found in repository root. Please ensure it's committed."
             exit 1
           fi
-          # Ensure known_faces directory is present if you want to bundle initial data
-          # (though for writable storage, the app creates it at runtime)
-          # If you want to pre-populate, ensure it's committed to the repo.
-          # For this setup, we assume the app creates it, so no specific action here.
+          if [ ! -f haarcascade_frontalface_default.xml ]; then
+            echo "Error: haarcascade_frontalface_default.xml not found in repository root. Please ensure it's committed."
+            exit 1
+          fi
+          if [ ! -f buildozer.spec ]; then
+            echo "Error: buildozer.spec not found in repository root. Please ensure it's committed."
+            exit 1
+          fi
+          # Add this step to print buildozer.spec content for debugging
+          echo "--- Content of buildozer.spec ---"
+          cat buildozer.spec
+          echo "---------------------------------"
 
       - name: Build Android APK
         # The 'android debug' command will download SDK/NDK and build the APK
